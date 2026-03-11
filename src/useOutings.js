@@ -1,42 +1,77 @@
 import { useState, useEffect, useCallback } from 'react'
-import { STORAGE_KEY } from './constants'
+import { supabase } from './supabase'
 
-export function useOutings() {
+function fromDB(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    date: row.date,
+    rating: row.rating,
+    notes: row.notes,
+    city: row.city,
+    lat: row.lat,
+    lng: row.lng,
+    kidFriendly: row.kid_friendly,
+    wouldReturn: row.would_return,
+    photos: row.photos || [],
+  }
+}
+
+function toDB(outing, userId) {
+  return {
+    id: outing.id,
+    user_id: userId,
+    name: outing.name,
+    category: outing.category,
+    date: outing.date,
+    rating: outing.rating,
+    notes: outing.notes || '',
+    city: outing.city || '',
+    lat: outing.lat || null,
+    lng: outing.lng || null,
+    kid_friendly: outing.kidFriendly,
+    would_return: outing.wouldReturn,
+    photos: outing.photos || [],
+  }
+}
+
+export function useOutings(user) {
   const [outings, setOutings] = useState([])
   const [loaded, setLoaded] = useState(false)
 
-  // Load from localStorage on mount
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) setOutings(JSON.parse(raw))
-    } catch (e) {
-      console.warn('Failed to load outings:', e)
-    }
-    setLoaded(true)
-  }, [])
+    if (!user) return
+    setLoaded(false)
+    supabase
+      .from('outings')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (error) console.error('Load error:', error)
+        else setOutings((data || []).map(fromDB))
+        setLoaded(true)
+      })
+  }, [user])
 
-  // Save to localStorage whenever outings change
-  useEffect(() => {
-    if (!loaded) return
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(outings))
-    } catch (e) {
-      console.warn('Failed to save outings:', e)
-    }
-  }, [outings, loaded])
-
-  const saveOuting = useCallback((outing) => {
+  const saveOuting = useCallback(async (outing) => {
+    if (!user) return
+    const row = toDB(outing, user.id)
+    const { error } = await supabase.from('outings').upsert(row, { onConflict: 'id' })
+    if (error) { console.error('Save error:', error); return }
     setOutings(prev =>
       prev.find(o => o.id === outing.id)
         ? prev.map(o => o.id === outing.id ? outing : o)
         : [outing, ...prev]
     )
-  }, [])
+  }, [user])
 
-  const deleteOuting = useCallback((id) => {
-    setOutings(prev => prev.filter(o => o.id !== id))
-  }, [])
+  const deleteOuting = useCallback(async (id) => {
+    if (!user) return
+    const { error } = await supabase.from('outings').delete().eq('id', id)
+    if (error) console.error('Delete error:', error)
+    else setOutings(prev => prev.filter(o => o.id !== id))
+  }, [user])
 
   const stats = {
     total: outings.length,
