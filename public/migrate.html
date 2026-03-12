@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Photo Migration Tool</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    background: #1a1008;
+    font-family: 'Lora', serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .card {
+    background: #fdf8f0;
+    border-radius: 24px;
+    padding: 40px;
+    max-width: 560px;
+    width: 100%;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.5);
+  }
+
+  .icon { font-size: 48px; margin-bottom: 12px; }
+  h1 { font-size: 26px; color: #2a1f0e; margin-bottom: 6px; font-weight: 700; }
+  .subtitle { color: #9a8a70; font-size: 14px; margin-bottom: 28px; line-height: 1.5; }
+
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block; font-size: 12px; font-weight: 700;
+    color: #7a6a50; text-transform: uppercase;
+    letter-spacing: 0.5px; margin-bottom: 6px;
+  }
+  .field input {
+    width: 100%; padding: 12px 14px;
+    border: 1.5px solid #e0d4c0; border-radius: 12px;
+    background: #fffdf8; font-size: 15px;
+    font-family: 'Lora', serif; outline: none;
+    transition: border-color 0.15s;
+  }
+  .field input:focus { border-color: #c0663a; }
+
+  .error-msg { color: #c03030; font-size: 13px; margin-bottom: 12px; min-height: 18px; }
+
+  .btn {
+    width: 100%; padding: 16px;
+    background: #c0663a; color: white; border: none;
+    border-radius: 14px; font-family: 'Lora', serif;
+    font-size: 16px; font-weight: 700; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:hover:not(:disabled) { background: #a0522e; transform: translateY(-1px); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn.success { background: #3a8a50; }
+
+  .progress-wrap { display: none; margin-top: 24px; }
+  .progress-wrap.show { display: block; }
+
+  .progress-bar-bg {
+    background: #f0e8d8; border-radius: 100px;
+    height: 10px; overflow: hidden; margin-bottom: 16px;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #c0663a, #e8a020);
+    border-radius: 100px; width: 0%; transition: width 0.4s ease;
+  }
+
+  .log {
+    background: #1a1008; border-radius: 12px;
+    padding: 16px; max-height: 280px; overflow-y: auto;
+    font-family: 'DM Mono', monospace; font-size: 12px; line-height: 1.8;
+  }
+  .log-line { display: flex; gap: 10px; }
+  .log-line.ok .dot { color: #4caf80; }
+  .log-line.err .dot { color: #e06060; }
+  .log-line.info .dot { color: #e8a020; }
+  .log-line .msg { color: #c0a878; }
+  .log-line.ok .msg { color: #a0d8b0; }
+  .log-line.err .msg { color: #e09090; }
+
+  .summary {
+    display: none; margin-top: 20px;
+    background: #f0ffe8; border: 1.5px solid #80c860;
+    border-radius: 12px; padding: 16px;
+    font-size: 14px; color: #2a5a20; line-height: 1.7;
+  }
+  .summary.show { display: block; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">📦</div>
+  <h1>Photo Migration Tool</h1>
+  <p class="subtitle">Sign in with your Family Memory Book account to move all base64 photos into Supabase Storage. Safe to run more than once.</p>
+
+  <div id="loginSection">
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="emailInput" placeholder="your@email.com"
+        autocapitalize="none" autocorrect="off" autocomplete="email" />
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="passwordInput" placeholder="Your password"
+        autocomplete="current-password" />
+    </div>
+    <div class="error-msg" id="loginError"></div>
+    <button class="btn" id="loginBtn" onclick="doLogin()">🔐 Sign In & Start Migration</button>
+  </div>
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill" id="progressFill"></div>
+    </div>
+    <div class="log" id="log"></div>
+  </div>
+
+  <div class="summary" id="summary"></div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://gosbqypythcwpntztfiy.supabase.co'
+const SUPABASE_ANON_KEY = 'sb_publishable_MUZYFYD_jEXgMpKLgZGjdg_K21pDeqs'
+const BUCKET = 'outing-photos'
+
+const { createClient } = supabase
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+document.getElementById('passwordInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin()
+})
+
+function log(msg, type = 'info') {
+  const logEl = document.getElementById('log')
+  const line = document.createElement('div')
+  line.className = 'log-line ' + type
+  line.innerHTML = `<span class="dot">${type === 'ok' ? '✓' : type === 'err' ? '✗' : '→'}</span><span class="msg">${msg}</span>`
+  logEl.appendChild(line)
+  logEl.scrollTop = logEl.scrollHeight
+}
+
+function setProgress(pct) {
+  document.getElementById('progressFill').style.width = pct + '%'
+}
+
+async function doLogin() {
+  const email = document.getElementById('emailInput').value.trim()
+  const password = document.getElementById('passwordInput').value
+  const errEl = document.getElementById('loginError')
+  const btn = document.getElementById('loginBtn')
+
+  errEl.textContent = ''
+  if (!email || !password) { errEl.textContent = 'Please enter email and password.'; return }
+
+  btn.disabled = true
+  btn.textContent = 'Signing in...'
+
+  const { data, error } = await db.auth.signInWithPassword({ email, password })
+
+  if (error) {
+    errEl.textContent = 'Sign in failed: ' + error.message
+    btn.disabled = false
+    btn.textContent = '🔐 Sign In & Start Migration'
+    return
+  }
+
+  document.getElementById('loginSection').style.display = 'none'
+  document.getElementById('progressWrap').classList.add('show')
+  runMigration(data.user)
+}
+
+function base64ToBlob(dataUrl) {
+  const [header, data] = dataUrl.split(',')
+  const mime = header.match(/:(.*?);/)[1]
+  const binary = atob(data)
+  const arr = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i)
+  return { blob: new Blob([arr], { type: mime }), mime }
+}
+
+function ext(mime) {
+  return mime.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg'
+}
+
+async function runMigration(user) {
+  const userId = user.id
+  log('Signed in as: ' + user.email, 'ok')
+  log('Fetching all outings...')
+
+  const { data: outings, error } = await db
+    .from('outings')
+    .select('id, name, photos')
+    .eq('user_id', userId)
+
+  if (error) { log('Failed to fetch outings: ' + error.message, 'err'); return }
+
+  const withPhotos = outings.filter(o => o.photos && o.photos.length > 0)
+  log('Found ' + outings.length + ' outings, ' + withPhotos.length + ' have photos')
+
+  if (withPhotos.length === 0) {
+    log('Nothing to migrate — all done!', 'ok')
+    setProgress(100)
+    const s = document.getElementById('summary')
+    s.classList.add('show')
+    s.innerHTML = '<strong>✅ All done!</strong> No base64 photos found — your database is already clean.'
+    return
+  }
+
+  let migratedPhotos = 0, skippedPhotos = 0, errors = 0
+  const totalPhotos = withPhotos.reduce((s, o) => s + o.photos.length, 0)
+  let processed = 0
+
+  for (const outing of withPhotos) {
+    log('Processing: ' + outing.name + ' (' + outing.photos.length + ' photo' + (outing.photos.length !== 1 ? 's' : '') + ')')
+    const updatedPhotos = []
+
+    for (let i = 0; i < outing.photos.length; i++) {
+      const photo = outing.photos[i]
+      processed++
+
+      if (photo.url && !photo.url.startsWith('data:')) {
+        log('  Photo ' + (i+1) + ': already in Storage, skipping', 'ok')
+        updatedPhotos.push(photo)
+        skippedPhotos++
+        setProgress(Math.round((processed / totalPhotos) * 90))
+        continue
+      }
+
+      const dataUrl = photo.data || photo.url
+      if (!dataUrl || !dataUrl.startsWith('data:')) {
+        log('  Photo ' + (i+1) + ': no base64 data, skipping', 'err')
+        updatedPhotos.push(photo)
+        errors++
+        setProgress(Math.round((processed / totalPhotos) * 90))
+        continue
+      }
+
+      try {
+        const { blob, mime } = base64ToBlob(dataUrl)
+        const filename = userId + '/' + outing.id + '_' + i + '_' + Date.now() + '.' + ext(mime)
+
+        const { error: uploadErr } = await db.storage
+          .from(BUCKET)
+          .upload(filename, blob, { contentType: mime, upsert: true })
+
+        if (uploadErr) {
+          log('  Photo ' + (i+1) + ': upload failed — ' + uploadErr.message, 'err')
+          updatedPhotos.push(photo)
+          errors++
+        } else {
+          const { data: { publicUrl } } = db.storage.from(BUCKET).getPublicUrl(filename)
+          updatedPhotos.push({ url: publicUrl })
+          log('  Photo ' + (i+1) + ': migrated ✓', 'ok')
+          migratedPhotos++
+        }
+      } catch (e) {
+        log('  Photo ' + (i+1) + ': error — ' + e.message, 'err')
+        updatedPhotos.push(photo)
+        errors++
+      }
+
+      setProgress(Math.round((processed / totalPhotos) * 90))
+    }
+
+    const { error: updateErr } = await db
+      .from('outings')
+      .update({ photos: updatedPhotos })
+      .eq('id', outing.id)
+
+    if (updateErr) log('  DB update failed for ' + outing.name + ': ' + updateErr.message, 'err')
+    else log('  Saved ✓', 'ok')
+  }
+
+  setProgress(100)
+  log('Migration complete!', 'ok')
+
+  const s = document.getElementById('summary')
+  s.classList.add('show')
+  s.innerHTML =
+    '<strong>✅ Migration done!</strong><br>' +
+    '📸 ' + migratedPhotos + ' photo' + (migratedPhotos !== 1 ? 's' : '') + ' moved to Storage<br>' +
+    '⏭️ ' + skippedPhotos + ' already in Storage (skipped)<br>' +
+    (errors > 0 ? '⚠️ ' + errors + ' photo' + (errors !== 1 ? 's' : '') + ' had errors (kept as-is)<br>' : '') +
+    '<br>Your app will now load instantly. Disk IO problem solved! 🎉'
+}
+</script>
+</body>
+</html>
