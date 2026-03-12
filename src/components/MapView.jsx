@@ -78,10 +78,12 @@ export default function MapView({ outings }) {
 
   return (
     <div>
-      <div
-        ref={mapRef}
-        style={{ width: '100%', height: 480, borderRadius: 20, overflow: 'hidden', background: '#e8e0d4' }}
-      />
+      <div style={{ position: 'relative', zIndex: 0, isolation: 'isolate' }}>
+        <div
+          ref={mapRef}
+          style={{ width: '100%', height: 480, borderRadius: 20, overflow: 'hidden', background: '#e8e0d4' }}
+        />
+      </div>
       {outings.length > 0 && withGeo < outings.length && (
         <p style={{ textAlign: 'center', fontSize: 13, color: '#9a8a70', marginTop: 12 }}>
           📍 {withGeo} of {outings.length} places pinned — locations are auto-detected when you save a place.
