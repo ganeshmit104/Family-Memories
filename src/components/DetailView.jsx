@@ -18,94 +18,74 @@ export default function DetailView({ outing, onClose, onEdit, onDelete }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
         <span style={{ fontSize: 44 }}>{cat.emoji}</span>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => onEdit(outing)} style={actionBtn('#f0e8d8', '#5a4a30')}>Edit</button>
-          <button onClick={() => { onDelete(outing.id); onClose() }} style={actionBtn('#fde8e8', '#c04040')}>Delete</button>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#9a8a70' }}>✕</button>
+          <button onClick={() => onEdit(outing)} style={{
+            background: '#f0e8d8', border: 'none', borderRadius: 10,
+            padding: '8px 16px', fontSize: 13, cursor: 'pointer', fontWeight: 600, color: '#5a4a30',
+          }}>✏️ Edit</button>
+          <button onClick={() => { if (window.confirm('Delete this memory?')) onDelete(outing.id) }} style={{
+            background: '#fee8e8', border: 'none', borderRadius: 10,
+            padding: '8px 16px', fontSize: 13, cursor: 'pointer', fontWeight: 600, color: '#c03030',
+          }}>🗑️ Delete</button>
+          <button onClick={onClose} style={{
+            background: '#f0e8d8', border: 'none', borderRadius: 10,
+            padding: '8px 14px', fontSize: 18, cursor: 'pointer', color: '#7a6a50', lineHeight: 1,
+          }}>×</button>
         </div>
       </div>
 
-      {/* Category label */}
-      <div style={{ fontSize: 11, fontWeight: 700, color: cat.color, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 }}>
-        {outing.category}
+      <h2 style={{ fontFamily: "'Lora', serif", fontSize: 24, color: '#2a1f0e', marginBottom: 4 }}>{outing.name}</h2>
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
+        <span style={{ background: cat.color + '20', color: cat.color, borderRadius: 20, padding: '4px 12px', fontSize: 12, fontWeight: 700 }}>
+          {cat.emoji} {cat.label}
+        </span>
+        {outing.city && <span style={{ color: '#9a8a70', fontSize: 13 }}>📍 {outing.city}</span>}
+        {outing.date && <span style={{ color: '#9a8a70', fontSize: 13 }}>📅 {formatDate(outing.date)}</span>}
       </div>
 
-      {/* Name */}
-      <h2 style={{ fontFamily: "'Lora', serif", fontSize: 26, color: '#2a1f0e', margin: '0 0 4px' }}>
-        {outing.name}
-      </h2>
+      <StarRating value={outing.rating} readonly size={20} />
 
-      {/* City */}
-      {outing.city && <div style={{ color: '#7a6a50', marginBottom: 10, fontSize: 14 }}>📍 {outing.city}</div>}
-
-      {/* Rating + date */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
-        <StarRating value={outing.rating} size={20} />
-        <span style={{ fontSize: 13, color: '#9a8a70' }}>{formatDate(outing.date)}</span>
+      <div style={{ display: 'flex', gap: 8, margin: '12px 0' }}>
+        {outing.kidFriendly && (
+          <span style={{ background: '#e8f8e8', color: '#3a8a50', borderRadius: 20, padding: '4px 12px', fontSize: 12, fontWeight: 700 }}>👧 Kid-Friendly</span>
+        )}
+        {outing.wouldReturn && (
+          <span style={{ background: '#e8f0ff', color: '#3050a0', borderRadius: 20, padding: '4px 12px', fontSize: 12, fontWeight: 700 }}>🔁 Would Return</span>
+        )}
       </div>
 
-      {/* Badges */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
-        {outing.kidFriendly && <span style={badge('#fef3c0', '#5a3a00')}>👶 Kid-friendly</span>}
-        {outing.wouldReturn && <span style={badge('#dcfce7', '#166534')}>🔄 Would return</span>}
-      </div>
+      {outing.notes && (
+        <p style={{ color: '#5a4a30', fontSize: 14, lineHeight: 1.6, background: '#f8f4ec', borderRadius: 12, padding: '12px 16px', marginTop: 12 }}>
+          {outing.notes}
+        </p>
+      )}
 
-      {/* Photos */}
       {outing.photos?.length > 0 && (
-        <div style={{ marginBottom: 18 }}>
-          <SectionLabel>Photos ({outing.photos.length})</SectionLabel>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ marginTop: 20 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#9a8a70', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
+            Photos ({outing.photos.length})
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 }}>
             {outing.photos.map((p, i) => (
               <img
-                key={p.id} src={p.data} alt=""
+                key={i} src={p.url || p.data} alt=""
                 onClick={() => setLightbox(i)}
-                style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 12, cursor: 'pointer', border: '2px solid #e0d4c0', transition: 'transform 0.15s' }}
-                onMouseEnter={e => e.target.style.transform = 'scale(1.06)'}
-                onMouseLeave={e => e.target.style.transform = 'scale(1)'}
+                style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 10, cursor: 'pointer' }}
               />
             ))}
           </div>
         </div>
       )}
 
-      {/* Notes */}
-      {outing.notes && (
-        <div style={{ background: cat.bg, borderRadius: 14, padding: 16, marginBottom: 18, borderLeft: `4px solid ${cat.color}` }}>
-          <SectionLabel>Notes & Memories</SectionLabel>
-          <div style={{ fontSize: 14, color: '#3a2a10', lineHeight: 1.75 }}>{outing.notes}</div>
-        </div>
-      )}
-
-      {/* Map */}
       {outing.lat && outing.lng && (
-        <div>
-          <SectionLabel>Location</SectionLabel>
+        <div style={{ marginTop: 20, borderRadius: 14, overflow: 'hidden', height: 180 }}>
           <iframe
-            title="location"
             src={`https://www.openstreetmap.org/export/embed.html?bbox=${outing.lng - 0.012},${outing.lat - 0.012},${outing.lng + 0.012},${outing.lat + 0.012}&layer=mapnik&marker=${outing.lat},${outing.lng}`}
-            style={{ width: '100%', height: 200, border: 'none', borderRadius: 14 }}
+            style={{ width: '100%', height: '100%', border: 'none' }}
+            title="map"
           />
         </div>
       )}
     </div>
   )
 }
-
-function SectionLabel({ children }) {
-  return (
-    <div style={{ fontSize: 11, fontWeight: 700, color: '#9a8a70', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
-      {children}
-    </div>
-  )
-}
-
-const actionBtn = (bg, color) => ({
-  background: bg, border: 'none', borderRadius: 10,
-  padding: '8px 16px', cursor: 'pointer',
-  fontWeight: 700, color, fontSize: 13,
-})
-
-const badge = (bg, color) => ({
-  background: bg, borderRadius: 20,
-  padding: '4px 14px', fontSize: 13,
-  fontWeight: 700, color,
-})
