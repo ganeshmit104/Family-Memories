@@ -225,14 +225,17 @@ export default function App() {
       {/* Modals */}
       {(showAdd || editing) && (
         <Modal onClose={() => { setShowAdd(false); setEditing(null) }}>
-          <AddForm onSave={handleSave} onClose={() => { setShowAdd(false); setEditing(null) }} initial={editing} />
+          <AddForm onSave={handleSave} onClose={() => { setShowAdd(false); setEditing(null) }} initial={editing} userId={user.id} />
         </Modal>
       )}
       {viewing && !editing && (
         <Modal onClose={() => setViewing(null)}>
-          <DetailView outing={viewing} onClose={() => setViewing(null)}
+          <DetailView
+            outing={viewing}
+            onClose={() => setViewing(null)}
             onEdit={o => { setEditing(o); setViewing(null) }}
-            onDelete={handleDelete} />
+            onDelete={handleDelete}
+          />
         </Modal>
       )}
     </div>

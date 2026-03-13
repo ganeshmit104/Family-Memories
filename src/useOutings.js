@@ -43,6 +43,7 @@ export function useOutings(user) {
   useEffect(() => {
     if (!user) return
     setLoaded(false)
+    // Photos are now Storage URLs (small strings) — safe to load all at once
     supabase
       .from('outings')
       .select('*')
